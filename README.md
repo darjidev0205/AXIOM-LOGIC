@@ -1,7 +1,7 @@
 # ⚡ AXIOM Logic
 
 <p align="center">
-  <img src="YOUR_LOGO_URL" alt="AXIOM Logic Logo" width="180"/>
+  <img src="public/axiom-logo.png" alt="AXIOM Logic Logo" width="180"/>
 </p>
 
 <h3 align="center">
