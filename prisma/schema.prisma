@@ -1,0 +1,465 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  BUSINESS_OWNER
+  RETAILER
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum WorkflowStatus {
+  ACTIVE
+  DRAFT
+  PAUSED
+}
+
+enum ExecutionStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+  WAITING_FOR_HUMAN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REQUEST_INFO
+}
+
+enum IntegrationProvider {
+  CRM
+  EMAIL
+  DATABASE
+  CALENDAR
+  WHATSAPP
+  WEBHOOK
+  N8N
+  SLACK
+  SHOPIFY
+  HUBSPOT
+  SALESFORCE
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum ChannelType {
+  WHATSAPP
+  EMAIL
+  WEB_CHAT
+  SLACK
+  API
+}
+
+model User {
+  id           String       @id @default(cuid())
+  email        String       @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  role         UserRole     @default(USER)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  memberships   Membership[]
+  notifications Notification[]
+  businessUsers BusinessUser[]
+
+  @@map("users")
+}
+
+model Organization {
+  id             String             @id @default(cuid())
+  name           String
+  slug           String             @unique
+  plan           String             @default("Enterprise Growth")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  memberships    Membership[]
+  agents         Agent[]
+  workflows      Workflow[]
+  executions     WorkflowExecution[]
+  integrations   Integration[]
+  conversations  Conversation[]
+  knowledge      KnowledgeSource[]
+  approvals      HumanApproval[]
+  notifications  Notification[]
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  role           OrgRole      @default(MEMBER)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@map("memberships")
+}
+
+model Agent {
+  id             String       @id @default(cuid())
+  organizationId String
+  name           String
+  role           String
+  model          String       @default("gpt-4o")
+  temperature    Float        @default(0.2)
+  instructions   String       @db.Text
+  tools          String       @default("[]") // JSON string of allowed tools
+  status         String       @default("ACTIVE")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("agents")
+}
+
+model Workflow {
+  id             String             @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?            @db.Text
+  status         WorkflowStatus     @default(ACTIVE)
+  triggerType    String             @default("WEBHOOK")
+  definitionJson String             @db.Text
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  nodes          WorkflowNode[]
+  executions     WorkflowExecution[]
+
+  @@index([organizationId])
+  @@map("workflows")
+}
+
+model WorkflowNode {
+  id         String   @id @default(cuid())
+  workflowId String
+  nodeType   String
+  label      String
+  configJson String   @db.Text
+  positionX  Float    @default(0)
+  positionY  Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@map("workflow_nodes")
+}
+
+model WorkflowExecution {
+  id             String          @id @default(cuid())
+  workflowId     String
+  organizationId String
+  status         ExecutionStatus @default(RUNNING)
+  durationMs     Int             @default(0)
+  inputData      String?         @db.Text
+  outputData     String?         @db.Text
+  error          String?         @db.Text
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  workflow       Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  logs           ExecutionLog[]
+  approvals      HumanApproval[]
+
+  @@index([workflowId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("workflow_executions")
+}
+
+model ExecutionLog {
+  id          String            @id @default(cuid())
+  executionId String
+  nodeId      String?
+  stepName    String
+  level       String            @default("INFO")
+  message     String            @db.Text
+  latencyMs   Int               @default(0)
+  payload     String?           @db.Text
+  createdAt   DateTime          @default(now())
+
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@map("execution_logs")
+}
+
+model HumanApproval {
+  id             String            @id @default(cuid())
+  executionId    String
+  organizationId String
+  status         ApprovalStatus    @default(PENDING)
+  title          String
+  description    String            @db.Text
+  proposedAction String            @db.Text
+  reviewedBy     String?
+  decisionNote   String?           @db.Text
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  execution      WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
+  @@index([organizationId])
+  @@index([status])
+  @@map("human_approvals")
+}
+
+model Integration {
+  id             String              @id @default(cuid())
+  organizationId String
+  provider       IntegrationProvider
+  name           String
+  status         String              @default("CONNECTED") // CONNECTED, DISCONNECTED, ERROR
+  configJson     String              @db.Text
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("integrations")
+}
+
+model Conversation {
+  id             String        @id @default(cuid())
+  organizationId String
+  customerId     String?
+  customerName   String?
+  channel        ChannelType   @default(WEB_CHAT)
+  status         String        @default("ACTIVE")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages       Message[]
+
+  @@index([organizationId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String       @db.Text
+  metadata       String?      @db.Text
+  createdAt      DateTime     @default(now())
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolCalls      ToolCall[]
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+model ToolCall {
+  id         String   @id @default(cuid())
+  messageId  String
+  toolName   String
+  inputJson  String   @db.Text
+  outputJson String   @db.Text
+  status     String   @default("SUCCESS")
+  durationMs Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  message    Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("tool_calls")
+}
+
+model KnowledgeSource {
+  id             String       @id @default(cuid())
+  organizationId String
+  title          String
+  sourceType     String       // PDF, API_DOC, NOTION, WEBSITE
+  content        String       @db.Text
+  status         String       @default("INDEXED")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("knowledge_sources")
+}
+
+model Booking {
+  id           String   @id @default(cuid())
+  name         String
+  email        String
+  company      String
+  date         String
+  timeSlot     String
+  workflowType String
+  description  String   @db.Text
+  status       String   @default("CONFIRMED")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("bookings")
+}
+
+model Notification {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String?
+  title          String
+  message        String       @db.Text
+  read           Boolean      @default(false)
+  type           String       @default("INFO") // ESCALATION, EXECUTION, SYSTEM
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@map("notifications")
+}
+
+// ─── AXIOM Access Architecture ────────────────────────────────────────────────
+
+enum BusinessStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum RequestStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model Business {
+  id            String         @id @default(cuid())
+  name          String
+  type          String         @default("Business") // Business, Retailer, Enterprise
+  status        BusinessStatus @default(PENDING)
+  primaryEmail  String?
+  contactName   String?
+  notes         String?        @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  businessUsers BusinessUser[]
+  connections   Connection[]
+  requests      AxiomRequest[]
+
+  @@map("businesses")
+}
+
+model BusinessUser {
+  id         String   @id @default(cuid())
+  userId     String
+  businessId String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@map("business_users")
+}
+
+model Connection {
+  id         String           @id @default(cuid())
+  businessId String
+  status     ConnectionStatus @default(ACTIVE)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  business   Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  messages   AxiomMessage[]
+
+  @@unique([businessId])
+  @@map("connections")
+}
+
+model AxiomMessage {
+  id           String     @id @default(cuid())
+  connectionId String
+  senderId     String?
+  senderRole   String     @default("USER") // USER or AXIOM
+  body         String     @db.Text
+  read         Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+
+  connection   Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId])
+  @@map("axiom_messages")
+}
+
+model AxiomRequest {
+  id         String        @id @default(cuid())
+  businessId String
+  title      String
+  body       String        @db.Text
+  status     RequestStatus @default(NEW)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  business   Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@map("axiom_requests")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  // null for system events
+  action     String   // LOGIN, LOGOUT, USER_CREATED, ROLE_CHANGED, etc.
+  targetId   String?
+  targetType String?  // User, Business, Connection, etc.
+  metadata   String?  @db.Text // JSON
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@map("audit_logs")
+}

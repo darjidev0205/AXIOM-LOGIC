@@ -1,0 +1,682 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* ================= AXIOM LOGIC OFFICIAL BRAND SYSTEM ================= */
+    --axiom-navy: #0F172A;
+    --axiom-navy-dark: #0F172A;
+    --axiom-navy-muted: #1E293B;
+    
+    --axiom-blue: #2563EB;
+    --axiom-blue-hover: #1D4ED8;
+    --axiom-blue-subtle: #EFF6FF;
+    
+    --axiom-emerald: #10B981;
+    --axiom-emerald-hover: #059669;
+    --axiom-emerald-subtle: #ECFDF5;
+    
+    --axiom-bg: #FFFFFF;
+    --axiom-bg-alt: #F8FAFC;
+    --axiom-bg-muted: #F1F5F9;
+    
+    --axiom-border: #E2E8F0;
+    --axiom-border-subtle: #F1F5F9;
+    --axiom-border-dark: #1E293B;
+    
+    --axiom-text: #0F172A;
+    --axiom-text-muted: #64748B;
+    --axiom-text-subtle: #94A3B8;
+
+    /* Theme backwards-compatibility tokens */
+    --background: #FFFFFF;
+    --foreground: #0F172A;
+    --primary: #2563EB;
+    --primary-hover: #1D4ED8;
+    --primary-container: #2563EB;
+    --secondary: #10B981;
+    --secondary-container: #A7F3D0;
+    --surface: #F8FAFC;
+    --surface-low: #EFF6FF;
+    --surface-lowest: #FFFFFF;
+    --surface-high: #E2E8F0;
+    --surface-variant: #DBEAFE;
+    --on-surface: #0F172A;
+    --on-surface-variant: #475569;
+    --outline: #94A3B8;
+    --outline-variant: #E2E8F0;
+    --tertiary: #334155;
+    --error: #EF4444;
+    --error-container: #FEE2E2;
+  }
+}
+
+/* ================= TECHNICAL BACKGROUNDS ================= */
+/* Modern technical grid with subtle radial fade */
+.tech-grid-pattern {
+  background-image: 
+    linear-gradient(to right, rgba(226, 232, 240, 0.7) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 240, 0.7) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 30%, #000 45%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 75% 65% at 50% 30%, #000 45%, transparent 100%);
+}
+
+.tech-grid-dense {
+  background-image: 
+    linear-gradient(to right, rgba(226, 232, 240, 0.5) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 240, 0.5) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Dark mode grid pattern */
+.tech-grid-dark {
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, #000 40%, transparent 100%);
+}
+
+/* Radial luminous ambient glows */
+.ambient-glow-blue {
+  background: radial-gradient(circle at 50% 40%, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0.02) 50%, transparent 70%);
+}
+
+.ambient-glow-emerald {
+  background: radial-gradient(circle at 60% 50%, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.015) 50%, transparent 70%);
+}
+
+/* ================= TYPOGRAPHY & AXIOM ITALIC SIGNATURE ================= */
+/* Signature brand italic accents */
+.font-italic-accent-blue {
+  font-style: italic;
+  color: #2563EB;
+  font-weight: 600;
+}
+
+.font-italic-accent-emerald {
+  font-style: italic;
+  color: #10B981;
+  font-weight: 600;
+}
+
+.font-italic-accent-gradient {
+  font-style: italic;
+  background: linear-gradient(135deg, #2563EB 0%, #10B981 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+}
+
+/* Subtle crosshair and architectural markers */
+.architectural-rule {
+  background: linear-gradient(90deg, #E2E8F0 0%, rgba(226, 232, 240, 0.4) 50%, transparent 100%);
+  height: 1px;
+}
+
+.crosshair-mark {
+  position: relative;
+}
+.crosshair-mark::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 0;
+  width: 1px;
+  height: 9px;
+  background-color: #94A3B8;
+}
+.crosshair-mark::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -4px;
+  width: 9px;
+  height: 1px;
+  background-color: #94A3B8;
+}
+
+/* ================= KEYFRAME ANIMATIONS ================= */
+@keyframes flow-particle {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(200%);
+    opacity: 0;
+  }
+}
+
+@keyframes flow-particle-horizontal {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  25% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(200%);
+    opacity: 0;
+  }
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.85; }
+  50% { transform: scale(1.45); opacity: 0; }
+  100% { transform: scale(0.95); opacity: 0.85; }
+}
+
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes shimmer-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.animate-particle-down {
+  animation: flow-particle 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-particle-right {
+  animation: flow-particle-horizontal 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.status-pulse-active {
+  animation: pulse-ring 2.2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+}
+
+.animate-float-slow {
+  animation: subtle-float 6s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* ================= INTERACTIVE CARDS & BUTTONS ================= */
+/* AXIOM Primary Button */
+.btn-axiom-primary {
+  background-color: #2563EB;
+  color: #FFFFFF;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-axiom-primary:hover {
+  background-color: #1D4ED8;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(37, 99, 235, 0.4);
+}
+
+.btn-axiom-primary:active {
+  transform: translateY(0);
+}
+
+/* AXIOM Secondary Button */
+.btn-axiom-secondary {
+  background-color: #FFFFFF;
+  color: #0F172A;
+  font-weight: 600;
+  border: 1px solid #E2E8F0;
+  border-radius: 0.75rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-axiom-secondary:hover {
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+  color: #0F172A;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
+}
+
+.btn-axiom-secondary:active {
+  transform: translateY(0);
+}
+
+/* Arrow glide micro-interaction */
+.btn-arrow-slide .arrow-icon {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-arrow-slide:hover .arrow-icon {
+  transform: translateX(4px);
+}
+
+/* AXIOM Premium Card System */
+.axiom-card {
+  position: relative;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 1rem;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.28s ease;
+}
+
+.axiom-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.08), 
+              0 0 20px 0 rgba(37, 99, 235, 0.06);
+}
+
+.axiom-card-emerald:hover {
+  transform: translateY(-4px);
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.08), 
+              0 0 20px 0 rgba(16, 185, 129, 0.08);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ================= SIGNATURE AXIOM CORNER-CIRCLE CARD SYSTEM ================= */
+.axiom-corner-card {
+  position: relative;
+  overflow: hidden;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 1.25rem;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.3s ease;
+}
+
+.axiom-corner-card:hover,
+.axiom-corner-card:focus-within {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.09);
+}
+
+.axiom-corner-accent {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              height 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              top 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              bottom 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              left 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              right 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 0.35s ease,
+              background-color 0.35s ease;
+}
+
+/* Corner Placements: starts ~60px, expands to 280px */
+/* Bottom-Right */
+.corner-br {
+  width: 64px;
+  height: 64px;
+  right: -32px;
+  bottom: -32px;
+}
+.axiom-corner-card:hover .corner-br,
+.axiom-corner-card:focus-within .corner-br,
+.axiom-card-active .corner-br {
+  width: 280px;
+  height: 280px;
+  right: -85px;
+  bottom: -85px;
+}
+
+/* Top-Left */
+.corner-tl {
+  width: 64px;
+  height: 64px;
+  left: -32px;
+  top: -32px;
+}
+.axiom-corner-card:hover .corner-tl,
+.axiom-corner-card:focus-within .corner-tl,
+.axiom-card-active .corner-tl {
+  width: 280px;
+  height: 280px;
+  left: -85px;
+  top: -85px;
+}
+
+/* Bottom-Left */
+.corner-bl {
+  width: 64px;
+  height: 64px;
+  left: -32px;
+  bottom: -32px;
+}
+.axiom-corner-card:hover .corner-bl,
+.axiom-corner-card:focus-within .corner-bl,
+.axiom-card-active .corner-bl {
+  width: 280px;
+  height: 280px;
+  left: -85px;
+  bottom: -85px;
+}
+
+/* Top-Right */
+.corner-tr {
+  width: 64px;
+  height: 64px;
+  right: -32px;
+  top: -32px;
+}
+.axiom-corner-card:hover .corner-tr,
+.axiom-corner-card:focus-within .corner-tr,
+.axiom-card-active .corner-tr {
+  width: 280px;
+  height: 280px;
+  right: -85px;
+  top: -85px;
+}
+
+/* Accent Color Themes */
+/* Electric Blue */
+.accent-blue {
+  background-color: rgba(37, 99, 235, 0.12);
+  border: 1.5px solid rgba(37, 99, 235, 0.35);
+}
+.axiom-corner-card:hover .accent-blue,
+.axiom-corner-card:focus-within .accent-blue,
+.axiom-card-active .accent-blue {
+  background-color: rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.65);
+}
+.axiom-corner-card:hover:has(.accent-blue) {
+  border-color: rgba(37, 99, 235, 0.45);
+}
+
+/* Emerald / Teal */
+.accent-emerald {
+  background-color: rgba(16, 185, 129, 0.12);
+  border: 1.5px solid rgba(16, 185, 129, 0.35);
+}
+.axiom-corner-card:hover .accent-emerald,
+.axiom-corner-card:focus-within .accent-emerald,
+.axiom-card-active .accent-emerald {
+  background-color: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.65);
+}
+.axiom-corner-card:hover:has(.accent-emerald) {
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+/* Cyan */
+.accent-cyan {
+  background-color: rgba(6, 182, 212, 0.12);
+  border: 1.5px solid rgba(6, 182, 212, 0.35);
+}
+.axiom-corner-card:hover .accent-cyan,
+.axiom-corner-card:focus-within .accent-cyan,
+.axiom-card-active .accent-cyan {
+  background-color: rgba(6, 182, 212, 0.18);
+  border-color: rgba(6, 182, 212, 0.65);
+}
+.axiom-corner-card:hover:has(.accent-cyan) {
+  border-color: rgba(6, 182, 212, 0.45);
+}
+
+/* Amber */
+.accent-amber {
+  background-color: rgba(245, 158, 11, 0.12);
+  border: 1.5px solid rgba(245, 158, 11, 0.35);
+}
+.axiom-corner-card:hover .accent-amber,
+.axiom-corner-card:focus-within .accent-amber,
+.axiom-card-active .accent-amber {
+  background-color: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.65);
+}
+.axiom-corner-card:hover:has(.accent-amber) {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+/* Red / Danger */
+.accent-red {
+  background-color: rgba(239, 68, 68, 0.12);
+  border: 1.5px solid rgba(239, 68, 68, 0.35);
+}
+.axiom-corner-card:hover .accent-red,
+.axiom-corner-card:focus-within .accent-red,
+.axiom-card-active .accent-red {
+  background-color: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.65);
+}
+.axiom-corner-card:hover:has(.accent-red) {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* Icon Micro-Interactions on Card / Button Hover */
+.axiom-corner-card:hover .icon-hover-glide {
+  transform: translateX(4px);
+}
+.axiom-corner-card:hover .icon-hover-pulse {
+  transform: scale(1.08);
+}
+.icon-hover-glide,
+.icon-hover-pulse {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ================= FLOATING & TELEMETRY ANIMATIONS ================= */
+@keyframes axiom-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes axiom-float-reverse {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(8px);
+  }
+}
+
+@keyframes axiom-pulse-glow {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes axiom-pulse-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@keyframes axiom-dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.animate-axiom-float {
+  animation: axiom-float 6s ease-in-out infinite;
+}
+
+.animate-axiom-float-reverse {
+  animation: axiom-float-reverse 7s ease-in-out infinite;
+}
+
+.animate-axiom-pulse {
+  animation: axiom-pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-axiom-ring {
+  animation: axiom-pulse-ring 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.animate-axiom-dash {
+  stroke-dasharray: 6 6;
+  animation: axiom-dash 3s linear infinite;
+}
+
+/* ================= REPOSITORY-WIDE RESPONSIVE SYSTEM ================= */
+html, body {
+  overflow-x: clip;
+  max-width: 100vw;
+  width: 100%;
+}
+
+/* Unified Fluid Container */
+.axiom-container {
+  width: 100%;
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(16px, 4vw, 48px);
+  padding-right: clamp(16px, 4vw, 48px);
+}
+
+/* Fluid Typography Utilities */
+.font-display-hero {
+  font-size: clamp(36px, 6vw, 76px);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+}
+
+.font-display-section {
+  font-size: clamp(28px, 4vw, 52px);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+
+.font-body-fluid {
+  font-size: clamp(15px, 1.2vw, 18px);
+  line-height: 1.65;
+}
+
+.font-label-fluid {
+  font-size: clamp(10px, 0.85vw, 12px);
+  letter-spacing: 0.08em;
+}
+
+/* Modern Viewport Unit Utilities */
+.min-h-screen-svh {
+  min-height: 100svh;
+}
+
+.min-h-screen-dvh {
+  min-height: 100dvh;
+}
+
+/* Touch & Mobile Scaling for Axiom Corner Cards */
+.axiom-corner-card:active .corner-br {
+  width: 200px;
+  height: 200px;
+  right: -50px;
+  bottom: -50px;
+}
+.axiom-corner-card:active .corner-tl {
+  width: 200px;
+  height: 200px;
+  left: -50px;
+  top: -50px;
+}
+.axiom-corner-card:active .corner-bl {
+  width: 200px;
+  height: 200px;
+  left: -50px;
+  bottom: -50px;
+}
+.axiom-corner-card:active .corner-tr {
+  width: 200px;
+  height: 200px;
+  right: -50px;
+  top: -50px;
+}
+
+@media (max-width: 640px) {
+  .axiom-corner-card:hover .corner-br,
+  .axiom-corner-card:focus-within .corner-br,
+  .axiom-card-active .corner-br {
+    width: 160px;
+    height: 160px;
+    right: -40px;
+    bottom: -40px;
+  }
+  .axiom-corner-card:hover .corner-tl,
+  .axiom-corner-card:focus-within .corner-tl,
+  .axiom-card-active .corner-tl {
+    width: 160px;
+    height: 160px;
+    left: -40px;
+    top: -40px;
+  }
+  .axiom-corner-card:hover .corner-bl,
+  .axiom-corner-card:focus-within .corner-bl,
+  .axiom-card-active .corner-bl {
+    width: 160px;
+    height: 160px;
+    left: -40px;
+    bottom: -40px;
+  }
+  .axiom-corner-card:hover .corner-tr,
+  .axiom-corner-card:focus-within .corner-tr,
+  .axiom-card-active .corner-tr {
+    width: 160px;
+    height: 160px;
+    right: -40px;
+    top: -40px;
+  }
+}
+
