@@ -1,229 +1,434 @@
-# AXIOM Logic
+# ⚡ AXIOM Logic
 
-> AI Automation · Intelligent Workflows · Business Process Automation · Systems Integration · Scalable Digital Infrastructure
+<p align="center">
+  <img src="YOUR_LOGO_URL" alt="AXIOM Logic Logo" width="180"/>
+</p>
 
-Premium enterprise AI automation platform. Built for high-end businesses that require intelligent, orchestrated, and scalable workflow automation.
+<h3 align="center">
+  Intelligent Automation. Connected Systems. Scalable Growth.
+</h3>
 
----
+<p align="center">
+  <strong>AI • Automation • Integrations • Business Systems</strong>
+</p>
 
-## Architecture
-
-```
-GitHub (source of truth)
-    │
-    ├── Vercel → Full Next.js App (Frontend + API Routes)
-    │
-    └── Render → PostgreSQL Database
-```
-
-This is a **Next.js 16 full-stack monorepo**. The frontend and all API/backend logic live together in a single Next.js application. Vercel handles both the React frontend and the server-side API routes natively. There is no separate backend server.
-
-| Layer | Technology | Hosting |
-|-------|-----------|---------|
-| Frontend | Next.js 16 (App Router, React 19) | Vercel |
-| API / Backend | Next.js API Routes (`app/api/`) | Vercel (same deploy) |
-| Database | PostgreSQL + Prisma ORM | Render PostgreSQL |
-| Auth | Custom HMAC-signed HttpOnly session cookies | — |
-| Email | Resend (server-side only) | — |
-| Route protection | Next.js `proxy.ts` (renamed from middleware in v16) | — |
+<p align="center">
+  <a href="#about">About</a> •
+  <a href="#what-we-build">What We Build</a> •
+  <a href="#technology">Technology</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#vision">Vision</a> •
+  <a href="#contact">Contact</a>
+</p>
 
 ---
 
-## Access Architecture
+## About
 
-| Route | Who | Authentication |
-|-------|-----|---------------|
-| `/` · `/solutions` · `/pricing` · etc. | Public | None |
-| `/sign-in` | Public | None |
-| `/connection` | Business users | Signed session cookie |
-| `/admin/login` | AXIOM Admins only | Not linked publicly |
-| `/admin` | AXIOM Admins only | ADMIN role required |
-| `/book` | Public | None |
+**AXIOM Logic** is an automation technology company focused on helping businesses eliminate repetitive processes, connect disconnected systems, and build intelligent digital workflows.
 
----
+We combine **AI, workflow automation, APIs, data, and modern software engineering** to turn manual business operations into scalable automated systems.
 
-## Local Development
+> **From repetitive work to intelligent systems.**
 
-### Prerequisites
+AXIOM Logic is being built around a simple principle:
 
-- Node.js 20+
-- PostgreSQL 14+ running locally
-- `npm`
-
-### Setup
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/darjidev0205/AXIOM-LOGIC.git
-cd AXIOM-LOGIC
-
-# 2. Install dependencies (Prisma client is auto-generated via postinstall)
-npm install
-
-# 3. Copy environment variables
-cp .env.example .env
-# Edit .env with your local database URL and a generated AUTH_SECRET
-
-# 4. Push the database schema
-npm run prisma:push
-
-# 5. Seed the database (optional)
-npx tsx prisma/seed.ts
-
-# 6. Start the development server
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-### Dev Login Credentials
-
-In development, seeded users accept any password:
-
-| Email | Role | Redirects to |
-|-------|------|-------------|
-| `marcus@acme.com` | ADMIN | `/admin` |
-| `elena@acme.com` | ADMIN | `/admin` |
-| `david@acme.com` | USER | `/connection` |
+**If a business process can be measured, connected, and automated — it should be.**
 
 ---
 
-## Production Deployment
+## What We Build
 
-### 1. Render — PostgreSQL Database
+AXIOM Logic focuses on building automation systems across different business operations.
 
-1. Create a new **PostgreSQL** service on [Render](https://render.com)
-2. Copy the **External Database URL**
-3. Set this as `DATABASE_URL` in Vercel environment variables (see below)
+### 🤖 AI-Powered Automation
 
-### 2. Vercel — Full Application
+* AI agents
+* Intelligent chat systems
+* AI-assisted workflows
+* Document processing
+* Data extraction
+* AI decision-support systems
+* Natural language interfaces
 
-#### Vercel Project Settings
+### 🔄 Business Process Automation
 
-| Setting | Value |
-|---------|-------|
-| **Framework** | Next.js |
-| **Root Directory** | `.` (repository root) |
-| **Build Command** | `npm run build` (runs `prisma generate && next build`) |
-| **Output Directory** | `.next` (auto-detected) |
-| **Install Command** | `npm install` |
-| **Node.js Version** | 20.x |
+* Lead automation
+* Customer onboarding
+* Notifications
+* Follow-ups
+* Approval workflows
+* Internal operations
+* Reporting automation
+* Task orchestration
 
-#### Required Environment Variables on Vercel
+### 🔗 System Integrations
 
-Set these in **Vercel → Project → Settings → Environment Variables**:
+Connect the tools businesses already use.
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | Render PostgreSQL external URL | `postgresql://user:pass@host/db` |
-| `AUTH_SECRET` | HMAC signing key (min 32 chars) | `openssl rand -hex 64` |
-| `NEXT_PUBLIC_APP_URL` | Your Vercel production URL | `https://axiom-logic.vercel.app` |
-| `RESEND_API_KEY` | Resend email API key (server-side only) | `re_...` |
-| `OPENAI_API_KEY` | Optional — mock responses used when missing | `sk-...` |
-| `ANTHROPIC_API_KEY` | Optional | `sk-ant-...` |
-| `N8N_WEBHOOK_URL` | Optional — automation webhook | |
-| `N8N_API_KEY` | Optional | |
+```text
+CRM
+ │
+ ├── Email
+ ├── WhatsApp
+ ├── Google Workspace
+ ├── Databases
+ ├── Payment Systems
+ ├── APIs
+ └── AI Models
+        │
+        ▼
+   AXIOM Logic
+        │
+        ▼
+ Automated Business Workflow
+```
 
-> ⚠️ **Never** prefix secrets with `NEXT_PUBLIC_`. Only `NEXT_PUBLIC_APP_URL` is exposed to the browser.
+### 📊 Data & Analytics
 
-#### Post-Deploy: Run Database Migration
+Transform operational data into useful business intelligence.
 
-After first deploy, run the Prisma schema push via Vercel's terminal or a one-off command:
+* Automated data collection
+* Data pipelines
+* Business dashboards
+* Performance monitoring
+* Automated reports
+* AI-powered insights
 
-```bash
-# From local, pointing at production DB
-DATABASE_URL="your-render-url" npm run prisma:push
+---
+
+## Our Approach
+
+We don't simply automate individual tasks.
+
+We look at the **complete workflow**.
+
+```text
+BUSINESS PROCESS
+       ↓
+Understand
+       ↓
+Identify Repetition
+       ↓
+Connect Systems
+       ↓
+Add Automation
+       ↓
+Add Intelligence
+       ↓
+Monitor
+       ↓
+Optimize
+       ↓
+SCALE
+```
+
+Our goal is to build systems that continue working as the business grows.
+
+---
+
+## Technology
+
+AXIOM Logic is built around a modern and scalable technology ecosystem.
+
+### Frontend
+
+* React
+* Next.js
+* TypeScript
+* Tailwind CSS
+
+### Backend
+
+* Node.js
+* Express
+* Python
+* FastAPI
+
+### AI
+
+* Large Language Models
+* AI Agents
+* RAG
+* Embeddings
+* Vector Databases
+* Speech-to-Text
+* Text-to-Speech
+
+### Automation
+
+* n8n
+* Webhooks
+* REST APIs
+* Event-driven workflows
+* Scheduled automation
+
+### Databases
+
+* PostgreSQL
+* MongoDB
+* Supabase
+* Redis
+
+### Infrastructure
+
+* GitHub
+* Vercel
+* Render
+* Cloud platforms
+* Docker
+
+> Technology choices may evolve as AXIOM Logic scales and new requirements emerge.
+
+---
+
+## Automation Architecture
+
+Our systems are designed around modular, API-first architecture.
+
+```text
+                    ┌──────────────────┐
+                    │   User / Client  │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │  Web / Mobile UI │
+                    └────────┬─────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │   API / Backend  │
+                    └────────┬─────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              ▼              ▼              ▼
+        ┌──────────┐   ┌──────────┐   ┌──────────┐
+        │ Database │   │    AI    │   │Automation│
+        └──────────┘   └──────────┘   └────┬─────┘
+                                           │
+                           ┌───────────────┼───────────────┐
+                           ▼               ▼               ▼
+                       WhatsApp         Email            CRM
+                           │               │               │
+                           └───────────────┼───────────────┘
+                                           ▼
+                                  Automated Workflow
 ```
 
 ---
 
-## Environment Variables Reference
+## Engineering Principles
 
-| Variable | Required | Server/Client | Purpose |
-|----------|----------|---------------|---------|
-| `DATABASE_URL` | ✅ | Server | PostgreSQL connection string |
-| `AUTH_SECRET` | ✅ | Server | HMAC session signing key |
-| `NEXT_PUBLIC_APP_URL` | ✅ | Client (public) | Frontend base URL |
-| `RESEND_API_KEY` | Optional | Server | Transactional email |
-| `OPENAI_API_KEY` | Optional | Server | AI features |
-| `ANTHROPIC_API_KEY` | Optional | Server | AI features |
-| `N8N_WEBHOOK_URL` | Optional | Server | Workflow automation |
-| `N8N_API_KEY` | Optional | Server | n8n authentication |
-| `CALENDAR_API_KEY` | Optional | Server | Calendar integrations |
-| `SLACK_BOT_TOKEN` | Optional | Server | Slack notifications |
-| `WHATSAPP_API_TOKEN` | Optional | Server | WhatsApp channel |
+### 01 — Automation First
+
+We identify repetitive work and design systems to minimize unnecessary human intervention.
+
+### 02 — AI Where It Creates Value
+
+AI is used where reasoning, classification, generation, or natural-language interaction provides a meaningful advantage.
+
+### 03 — API First
+
+Systems should communicate through reliable and maintainable interfaces.
+
+### 04 — Modular Architecture
+
+Automation workflows should be replaceable, extendable, and reusable.
+
+### 05 — Human-in-the-Loop
+
+Not every decision should be automated.
+
+Critical operations can include human approval and intervention when required.
+
+### 06 — Built to Scale
+
+We design systems with future integrations, larger workloads, and evolving business requirements in mind.
 
 ---
 
-## Project Structure
+## Example Automation
 
-```
-/
-├── app/                    # Next.js App Router (pages + API routes)
-│   ├── api/                # Server-side API routes (the "backend")
-│   │   ├── auth/           # Login / logout / session
-│   │   ├── bookings/       # Booking system
-│   │   ├── health/         # GET /api/health — uptime check
-│   │   └── ...
-│   ├── admin/              # Admin portal (AXIOM staff only)
-│   ├── connection/         # Business user private workspace
-│   ├── sign-in/            # Authentication page
-│   └── ...                 # Public marketing pages
-│
-├── components/             # Shared React components
-│   ├── navigation/         # TopNavBar, Footer
-│   ├── brand/              # AxiomLogo, brand assets
-│   └── ...
-│
-├── lib/                    # Server-side utilities
-│   ├── auth.ts             # HMAC session management
-│   ├── email.ts            # Resend email templates
-│   └── prisma.ts           # Prisma client singleton
-│
-├── prisma/
-│   ├── schema.prisma       # Database schema
-│   └── seed.ts             # Development seed data
-│
-├── services/               # Business logic services
-├── public/                 # Static assets (logos, icons)
-├── proxy.ts                # Next.js 16 route protection (auth middleware)
-├── next.config.ts          # Next.js configuration
-├── .env.example            # Environment variable template
-└── .gitignore
+A typical business workflow could look like:
+
+```text
+Customer submits enquiry
+          ↓
+        Webhook
+          ↓
+      AI Analysis
+          ↓
+    Lead Classification
+          ↓
+      CRM Update
+          ↓
+   Sales Notification
+          ↓
+   Automated Follow-up
+          ↓
+   Performance Tracking
 ```
 
+What previously required multiple manual steps can become a single connected workflow.
+
+---
 ---
 
 ## Security
 
-- **Session cookies**: HttpOnly, Secure (production), signed with HMAC-SHA256
-- **Role enforcement**: Server-side via `proxy.ts` — client cannot bypass
-- **Email API key**: Server-side only — never exposed to browser
-- **Database credentials**: Server-side only via `DATABASE_URL`
-- **Security headers**: X-Frame-Options, X-Content-Type-Options, Referrer-Policy
-- **Secrets**: All secrets via environment variables — none hardcoded
+Security is considered throughout the system lifecycle.
+
+Our development approach includes:
+
+* Environment-based secrets
+* API authentication
+* Role-based access control
+* Input validation
+* Secure API communication
+* Database access controls
+* Webhook verification
+* Error handling
+* Logging and monitoring
+
+**Never commit production credentials, API keys, tokens, or secrets to GitHub.**
 
 ---
 
-## Health Check
+## Development
 
-```
-GET /api/health
-```
+Clone the repository:
 
-Response:
-```json
-{
-  "status": "ok",
-  "service": "AXIOM Logic",
-  "timestamp": "2026-09-12T10:00:00.000Z"
-}
+```bash
+git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
 ```
 
-No authentication required. Use for Vercel/Render uptime monitoring.
+Navigate into the project:
+
+```bash
+cd YOUR_REPOSITORY
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Create your environment file:
+
+```bash
+cp .env.example .env
+```
+
+Add the required environment variables and start the development server:
+
+```bash
+npm run dev
+```
+
+> Project-specific setup instructions should be added as individual AXIOM Logic repositories are developed.
 
 ---
 
-## License
+## Roadmap
 
-Private. © AXIOM Logic Inc. All rights reserved.
+### Phase 01 — Foundation
+
+* [x] Brand identity
+* [x] Website foundation
+* [ ] Core automation architecture
+* [ ] Reusable integration layer
+* [ ] Internal developer standards
+
+### Phase 02 — Automation Platform
+
+* [ ] Workflow engine
+* [ ] AI agent framework
+* [ ] Integration library
+* [ ] Monitoring system
+* [ ] Automation templates
+
+### Phase 03 — Business Solutions
+
+* [ ] Sales automation
+* [ ] Customer support automation
+* [ ] Operations automation
+* [ ] Data automation
+* [ ] AI-powered business workflows
+
+### Phase 04 — Scale
+
+* [ ] Multi-tenant architecture
+* [ ] Advanced analytics
+* [ ] Enterprise integrations
+* [ ] Automation marketplace
+* [ ] Scalable cloud infrastructure
+
+---
+
+## Vision
+
+The future of business isn't simply about having more software.
+
+It's about having **software that works together**.
+
+AXIOM Logic aims to build the infrastructure that connects:
+
+```text
+PEOPLE
+  +
+DATA
+  +
+SOFTWARE
+  +
+AI
+  +
+AUTOMATION
+       ↓
+INTELLIGENT BUSINESS SYSTEMS
+```
+
+Our long-term vision is to help businesses move from fragmented tools and manual operations toward **connected, intelligent, and scalable systems**.
+
+---
+
+## Why AXIOM Logic?
+
+**AXIOM** represents a fundamental principle.
+
+**LOGIC** represents the systems and reasoning that turn that principle into action.
+
+Together:
+
+> **AXIOM Logic — where business processes become intelligent systems.**
+
+---
+
+## Status
+
+🚀 **Building**
+
+AXIOM Logic is currently developing its technology foundation, automation architecture, and initial business solutions.
+
+---
+
+## Connect
+
+<p align="center">
+
+**AXIOM Logic**
+
+AI • Automation • Integrations • Intelligent Systems
+
+</p>
+
+<p align="center">
+  <sub>Building systems that work smarter, automatically.</sub>
+</p>
+
+---
+
+<p align="center">
+  © 2026 AXIOM Logic. All rights reserved.
+</p>
