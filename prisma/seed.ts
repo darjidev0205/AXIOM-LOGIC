@@ -1,4 +1,5 @@
 import { PrismaClient, UserRole, OrgRole, WorkflowStatus, ExecutionStatus, ApprovalStatus, IntegrationProvider, ChannelType, MessageRole } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -45,8 +46,8 @@ async function main() {
 
   const adminUser = await prisma.user.create({
     data: {
-      email: "elena@acme.com",
-      passwordHash: "scrypt_mock_hashed_secure_password_123",
+      email: "darjidev4350@gmail.com",
+      passwordHash: bcrypt.hashSync("Dev@0205", 10),
       name: "Elena Rostova",
       avatarUrl: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&auto=format&fit=crop&q=80",
       role: UserRole.ADMIN,

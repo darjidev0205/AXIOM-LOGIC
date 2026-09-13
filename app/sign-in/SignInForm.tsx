@@ -227,8 +227,8 @@ export default function SignInForm() {
             <div className="mt-6 bg-amber-50 border border-amber-200/80 rounded-xl p-4 text-[12px] text-amber-800 font-mono">
               <div className="font-semibold mb-1">DEV MODE — Seeded accounts</div>
               Password field can be anything (leave blank or type anything).<br />
-              Admin: <code className="bg-amber-100 px-1 rounded">marcus@acme.com</code><br />
-              Also admin: <code className="bg-amber-100 px-1 rounded">elena@acme.com</code>
+              Admin: <code className="bg-amber-100 px-1 rounded">darjidev4350@gmail.com</code><br />
+              Also admin: <code className="bg-amber-100 px-1 rounded">marcus@acme.com</code>
             </div>
           )}
 
