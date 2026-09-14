@@ -1,3 +1,5 @@
+import { generateBookingConfirmationEmailHtml } from "./emailTemplates";
+
 export interface BookingInputForN8n {
   id: string;
   name: string;
@@ -50,6 +52,18 @@ export async function sendBookingConfirmationToN8N(
     };
   }
 
+  // Generate enterprise responsive HTML email template for this booking
+  const renderedEmailHtml = generateBookingConfirmationEmailHtml({
+    name: booking.name,
+    email: email,
+    company: booking.company,
+    date: booking.date,
+    timeSlot: booking.timeSlot,
+    workflowType: booking.workflowType,
+    timeZone: booking.timeZone || "America/New_York",
+    description: booking.description,
+  });
+
   // Comprehensive payload preserving all existing and anticipated n8n expression mappings
   const payload = {
     // Customer Identity (supports both {{$json.name}} and {{$json.fullName}})
@@ -92,6 +106,10 @@ export async function sendBookingConfirmationToN8N(
     status: booking.status || "CONFIRMED",
     isCustomRequest: booking.status === "REQUESTED" || Boolean(booking.isCustomRequest),
     dispatchedAt: new Date().toISOString(),
+
+    // Pre-rendered enterprise HTML email template
+    html: renderedEmailHtml,
+    emailHtml: renderedEmailHtml,
   };
 
   try {

@@ -123,19 +123,31 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   });
 }
 
-export async function sendBookingConfirmationEmail(to: string, name: string, date: string, time: string) {
+import { generateBookingConfirmationEmailHtml } from "./emailTemplates";
+
+export async function sendBookingConfirmationEmail(
+  to: string,
+  name: string,
+  date: string,
+  time: string,
+  company: string = "Enterprise Organization",
+  workflowType: string = "Architecture & Operations",
+  timeZone: string = "America/New_York",
+  description?: string
+) {
   return sendEmail({
     to,
-    subject: "AXIOM Architecture Review — Confirmed",
-    html: axiomEmailWrapper(`
-      <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#F8FAFC;">Your session is confirmed.</h2>
-      <p style="margin:0 0 24px;font-size:15px;color:#94A3B8;line-height:1.6;">Hello ${name},<br/><br/>Your AXIOM Architecture Review has been scheduled.</p>
-      <div style="background:rgba(37,99,235,0.08);border:1px solid rgba(37,99,235,0.2);border-radius:8px;padding:16px 20px;margin-bottom:24px;">
-        <div style="font-size:12px;font-family:monospace;color:#2563EB;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">SCHEDULED SESSION</div>
-        <div style="font-size:16px;font-weight:600;color:#F8FAFC;">${date} · ${time}</div>
-      </div>
-      <p style="margin:0;font-size:13px;color:#475569;font-family:monospace;">An AXIOM specialist will reach out shortly with meeting details.</p>
-    `),
-    text: `Your AXIOM Architecture Review is confirmed.\n\n${date} · ${time}\n\nAn AXIOM specialist will reach out shortly.`,
+    subject: "Your Architecture Review is Confirmed — AXIOM Logic",
+    html: generateBookingConfirmationEmailHtml({
+      name,
+      email: to,
+      company,
+      date,
+      timeSlot: time,
+      workflowType,
+      timeZone,
+      description,
+    }),
+    text: `Your AXIOM Architecture Review is confirmed.\n\nDate: ${date}\nTime: ${time} (${timeZone})\nName: ${name}\nCompany: ${company}\n\nWe look forward to connecting with you.\n— The AXIOM Logic Team`,
   });
 }
