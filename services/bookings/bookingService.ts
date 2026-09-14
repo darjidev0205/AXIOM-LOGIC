@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { sendBookingConfirmationToN8N } from "@/lib/n8n";
 
 export interface CreateBookingInput {
   name: string;
@@ -28,6 +29,10 @@ export class BookingService {
         status: "CONFIRMED",
       },
     });
+
+    // Notify n8n webhook after database record is successfully created.
+    // Any n8n delivery error is handled gracefully inside the helper so the booking remains confirmed.
+    await sendBookingConfirmationToN8N(booking);
 
     return booking;
   }
