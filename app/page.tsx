@@ -35,35 +35,89 @@ export default function HomePage() {
   // Live Demo Section Interactive State
   const [activeScenario, setActiveScenario] = useState<"order" | "address" | "refund">("order");
   
-  // Interactive Booking Form State
-  const [bookDate, setBookDate] = useState("Tue, Apr 22");
-  const [bookTime, setBookTime] = useState("10:00 AM EST");
+  // Interactive Booking Form State (Dynamic & Timezone-Aware)
+  const [bookDate, setBookDate] = useState("");
+  const [bookDateIso, setBookDateIso] = useState("");
+  const [bookTime, setBookTime] = useState("");
+  const [bookMonthYear, setBookMonthYear] = useState("");
   const [bookName, setBookName] = useState("");
   const [bookEmail, setBookEmail] = useState("");
   const [bookCompany, setBookCompany] = useState("");
   const [bookArea, setBookArea] = useState("Customer Operations");
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [homeDates, setHomeDates] = useState<{ label: string; day: string; val: string; iso: string }[]>([]);
+  const [homeSlots, setHomeSlots] = useState<{ time: string; fullDisplay: string; available: boolean }[]>([]);
+  const [homeTzShort, setHomeTzShort] = useState("EST");
 
-  const dates = [
-    { label: "MON", day: "21", val: "Mon, Apr 21" },
-    { label: "TUE", day: "22", val: "Tue, Apr 22" },
-    { label: "WED", day: "23", val: "Wed, Apr 23" },
-    { label: "THU", day: "24", val: "Thu, Apr 24" },
-    { label: "FRI", day: "25", val: "Fri, Apr 25" },
-  ];
+  // Load dynamic dates and live slots on mount
+  React.useEffect(() => {
+    async function loadHomeAvailability() {
+      try {
+        const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+        const parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: userTz,
+          timeZoneName: "short",
+        }).formatToParts(new Date());
+        const tzShort = parts.find((p) => p.type === "timeZoneName")?.value || "EST";
+        setHomeTzShort(tzShort);
 
-  const times = [
-    "10:00 AM EST",
-    "11:30 AM EST",
-    "02:00 PM EST",
-    "03:30 PM EST",
-  ];
+        const res = await fetch(`/api/bookings/availability?timezone=${encodeURIComponent(userTz)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.dates && data.dates.length > 0) {
+          setHomeDates(data.dates);
+          const firstDate = data.dates[0];
+          setBookDate(firstDate.val);
+          setBookDateIso(firstDate.iso);
+          setBookMonthYear(firstDate.monthYear);
+        }
+
+        if (data.availability?.slots) {
+          setHomeSlots(data.availability.slots);
+          const firstAvail = data.availability.slots.find((s: { available: boolean }) => s.available);
+          if (firstAvail) {
+            setBookTime(firstAvail.fullDisplay);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load home booking availability:", err);
+      }
+    }
+    loadHomeAvailability();
+  }, []);
+
+  const handleDateSelect = async (d: { label: string; day: string; val: string; iso: string }) => {
+    setBookDate(d.val);
+    setBookDateIso(d.iso);
+    setBookingError(null);
+    try {
+      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+      const res = await fetch(`/api/bookings/availability?date=${d.iso}&timezone=${encodeURIComponent(userTz)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.availability?.slots) {
+          setHomeSlots(data.availability.slots);
+          const firstAvail = data.availability.slots.find((s: { available: boolean }) => s.available);
+          setBookTime(firstAvail ? firstAvail.fullDisplay : "");
+        }
+      }
+    } catch {
+      // Keep existing slots
+    }
+  };
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bookName || !bookEmail) return;
+    if (!bookTime) {
+      setBookingError("Please select an available time slot.");
+      return;
+    }
     setBookingLoading(true);
+    setBookingError(null);
 
     try {
       const res = await fetch("/api/bookings", {
@@ -80,11 +134,32 @@ export default function HomePage() {
         }),
       });
 
+      if (res.status === 409) {
+        const conflictData = await res.json().catch(() => ({}));
+        setBookingError(
+          conflictData.error || "That time was just booked. Please choose another available time."
+        );
+        // Refresh slots for selected date
+        if (bookDateIso) {
+          const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+          const refRes = await fetch(`/api/bookings/availability?date=${bookDateIso}&timezone=${encodeURIComponent(userTz)}`);
+          if (refRes.ok) {
+            const data = await refRes.json();
+            if (data.availability?.slots) setHomeSlots(data.availability.slots);
+          }
+        }
+        setBookTime("");
+        setBookingLoading(false);
+        return;
+      }
+
       if (res.ok) {
         setBookingSuccess(true);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setBookingError(errData.error || "Unable to reserve booking.");
       }
     } catch {
-      // Fallback success for demonstration if network mock
       setBookingSuccess(true);
     } finally {
       setBookingLoading(false);
@@ -1190,17 +1265,27 @@ export default function HomePage() {
                 </div>
               ) : (
                 <form onSubmit={handleBookingSubmit} className="space-y-6">
+                  {bookingError && (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] flex items-center gap-2.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                      <span>{bookingError}</span>
+                    </div>
+                  )}
+
                   {/* Step 1: Select Date */}
                   <div>
-                    <label className="block text-[12px] font-mono text-slate-500 uppercase tracking-wider mb-2 font-semibold">
-                      Select Date (April 2025)
-                    </label>
-                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                      {dates.map((d) => (
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[12px] font-mono text-slate-500 uppercase tracking-wider font-semibold">
+                        Select Date ({bookMonthYear || "Available Dates"})
+                      </label>
+                      <span className="text-[12px] font-mono text-[#2563EB] font-semibold">{bookDate}</span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                      {homeDates.map((d) => (
                         <button
-                          key={d.val}
+                          key={d.iso}
                           type="button"
-                          onClick={() => setBookDate(d.val)}
+                          onClick={() => handleDateSelect(d)}
                           className={`p-3 rounded-xl border text-center transition-all ${
                             bookDate === d.val
                               ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md"
@@ -1216,24 +1301,39 @@ export default function HomePage() {
 
                   {/* Step 2: Select Time */}
                   <div>
-                    <label className="block text-[12px] font-mono text-slate-500 uppercase tracking-wider mb-2 font-semibold">
-                      Select Time Slot
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {times.map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setBookTime(t)}
-                          className={`py-2 px-3 rounded-xl border text-center text-[12px] font-mono font-medium transition-all ${
-                            bookTime === t
-                              ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
-                              : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                          }`}
-                        >
-                          {t}
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-[12px] font-mono text-slate-500 uppercase tracking-wider font-semibold">
+                        Select Time Slot ({homeTzShort})
+                      </label>
+                      <span className="text-[12px] font-mono text-[#2563EB] font-semibold">{bookTime || "Choose a slot"}</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {homeSlots.length === 0 ? (
+                        <div className="col-span-full py-3 text-center text-[12px] font-mono text-slate-400">
+                          Loading available slots...
+                        </div>
+                      ) : (
+                        homeSlots.map((t) => (
+                          <button
+                            key={t.fullDisplay}
+                            type="button"
+                            disabled={!t.available}
+                            onClick={() => {
+                              setBookTime(t.fullDisplay);
+                              setBookingError(null);
+                            }}
+                            className={`py-2.5 px-3 rounded-xl border text-center text-[12px] font-mono font-medium transition-all ${
+                              bookTime === t.fullDisplay
+                                ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm"
+                                : !t.available
+                                ? "border-slate-200 bg-slate-100 text-slate-400 opacity-60 cursor-not-allowed line-through"
+                                : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            {t.time}
+                          </button>
+                        ))
+                      )}
                     </div>
                   </div>
 

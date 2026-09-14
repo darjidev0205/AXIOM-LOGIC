@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import TopNavBar from "@/components/navigation/TopNavBar";
 import Footer from "@/components/navigation/Footer";
 import AxiomCornerCard from "@/components/ui/AxiomCornerCard";
@@ -17,15 +17,39 @@ import {
   Layers,
   Check,
   Server,
+  ChevronLeft,
+  ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { DateOption, SlotOption } from "@/services/bookings/availabilityService";
 
 export default function BookPage() {
-  const [selectedDate, setSelectedDate] = useState("Tue, Apr 22");
-  const [selectedTime, setSelectedTime] = useState("10:00 AM EST");
-  const [name, setName] = useState("Marcus Vance");
-  const [email, setEmail] = useState("marcus@hypergrowth.io");
-  const [company, setCompany] = useState("Hypergrowth Inc");
+  const [timezone, setTimezone] = useState<string>("America/New_York");
+  const [detectedTzShort, setDetectedTzShort] = useState<string>("EST");
+  const [dateOffset, setDateOffset] = useState<number>(0);
+
+  const [dates, setDates] = useState<DateOption[]>([]);
+  const [selectedDateIso, setSelectedDateIso] = useState<string>("");
+  const [selectedDateFormatted, setSelectedDateFormatted] = useState<string>("");
+  const [currentMonthYear, setCurrentMonthYear] = useState<string>("");
+
+  const [slots, setSlots] = useState<SlotOption[]>([]);
+  const [selectedTime, setSelectedTime] = useState<string>("");
+  const [selectedSlotId, setSelectedSlotId] = useState<string>("");
+  const [slotsLoading, setSlotsLoading] = useState<boolean>(true);
+  const [isFullyBooked, setIsFullyBooked] = useState<boolean>(false);
+  const [nextAvailableDateOption, setNextAvailableDateOption] = useState<DateOption | null>(null);
+
+  // Custom Time Request State
+  const [showCustomTime, setShowCustomTime] = useState<boolean>(false);
+  const [customDate, setCustomDate] = useState<string>("");
+  const [customTime, setCustomTime] = useState<string>("");
+
+  // Form Inputs
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
   const [workflowArea, setWorkflowArea] = useState("Customer Operations");
   const [description, setDescription] = useState(
     "We handle ~800 order change requests per week manually in Zendesk and Postgres. Looking to automate safe changes without customer churn."
@@ -33,78 +57,275 @@ export default function BookPage() {
 
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [conflictError, setConflictError] = useState<string | null>(null);
   const [bookingData, setBookingData] = useState<{
     id: string;
     date: string;
     timeSlot: string;
     name: string;
     company: string;
+    status: string;
   } | null>(null);
 
-  const dates = [
-    { label: "MON", day: "21", val: "Mon, Apr 21" },
-    { label: "TUE", day: "22", val: "Tue, Apr 22" },
-    { label: "WED", day: "23", val: "Wed, Apr 23" },
-    { label: "THU", day: "24", val: "Thu, Apr 24" },
-    { label: "FRI", day: "25", val: "Fri, Apr 25" },
-    { label: "MON", day: "28", val: "Mon, Apr 28" },
-  ];
+  // Detect user browser timezone on mount
+  useEffect(() => {
+    try {
+      const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+      setTimezone(userTz);
 
-  const times = [
-    "09:00 AM EST",
-    "10:00 AM EST",
-    "11:30 AM EST",
-    "02:00 PM EST",
-    "03:30 PM EST",
-    "04:30 PM EST",
-  ];
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: userTz,
+        timeZoneName: "short",
+      }).formatToParts(new Date());
+
+      const shortTz = parts.find((p) => p.type === "timeZoneName")?.value || "UTC";
+      setDetectedTzShort(shortTz);
+    } catch {
+      // Fallback
+      setTimezone("America/New_York");
+      setDetectedTzShort("EST");
+    }
+  }, []);
+
+  // Fetch dynamic availability
+  const fetchAvailability = useCallback(
+    async (dateIsoToFetch?: string, showLoader: boolean = true) => {
+      if (showLoader) setSlotsLoading(true);
+
+      try {
+        const query = new URLSearchParams({
+          timezone,
+          offset: dateOffset.toString(),
+        });
+        if (dateIsoToFetch) query.set("date", dateIsoToFetch);
+
+        const res = await fetch(`/api/bookings/availability?${query.toString()}`);
+        if (!res.ok) throw new Error("Failed to load available slots");
+        const data = await res.json();
+
+        setDates(data.dates || []);
+        const activeIso = data.selectedDate || data.dates[0]?.iso;
+        setSelectedDateIso(activeIso);
+
+        const matchedDate = data.dates.find((d: DateOption) => d.iso === activeIso);
+        if (matchedDate) {
+          setSelectedDateFormatted(matchedDate.val);
+          setCurrentMonthYear(matchedDate.monthYear);
+        }
+
+        const activeSlots: SlotOption[] = data.availability?.slots || [];
+        setSlots(activeSlots);
+        setIsFullyBooked(data.availability?.isFullyBooked || false);
+
+        if (data.nextAvailableDate) {
+          const nextOpt = data.dates.find((d: DateOption) => d.iso === data.nextAvailableDate) || null;
+          setNextAvailableDateOption(nextOpt);
+        } else {
+          setNextAvailableDateOption(null);
+        }
+
+        // Check if selected time is still valid
+        setSelectedTime((prev) => {
+          if (!prev) return "";
+          const found = activeSlots.find(
+            (s) => s.fullDisplay.toLowerCase() === prev.toLowerCase() && s.available
+          );
+          if (!found) {
+            return "";
+          }
+          return prev;
+        });
+      } catch (err) {
+        console.error("Error fetching availability:", err);
+      } finally {
+        if (showLoader) setSlotsLoading(false);
+      }
+    },
+    [timezone, dateOffset]
+  );
+
+  // Load availability whenever timezone or dateOffset changes
+  useEffect(() => {
+    fetchAvailability(selectedDateIso || undefined);
+  }, [fetchAvailability, selectedDateIso]);
+
+  // Real-time synchronization via SSE & fallback polling
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
+    const connectSSE = () => {
+      try {
+        eventSource = new EventSource("/api/bookings/events");
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "slot_booked") {
+              setSlots((prev) =>
+                prev.map((slot) => {
+                  if (
+                    slot.fullDisplay.toLowerCase() === data.timeSlot?.toLowerCase() ||
+                    slot.time.toLowerCase() === data.timeSlot?.toLowerCase() ||
+                    slot.businessTime.toLowerCase() === data.timeSlot?.toLowerCase()
+                  ) {
+                    return { ...slot, available: false, status: "booked", reason: "booked" };
+                  }
+                  return slot;
+                })
+              );
+
+              // If currently selected by this user, warn and deselect
+              setSelectedTime((currentSelected) => {
+                if (
+                  currentSelected &&
+                  (currentSelected.toLowerCase() === data.timeSlot?.toLowerCase() ||
+                    currentSelected.toLowerCase() === data.timeSlot?.split(" ")[0]?.toLowerCase())
+                ) {
+                  setConflictError("That time was just booked. Please choose another available time.");
+                  return "";
+                }
+                return currentSelected;
+              });
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          reconnectTimeout = setTimeout(connectSSE, 5000);
+        };
+      } catch {
+        // SSE not supported or blocked
+      }
+    };
+
+    connectSSE();
+
+    // Fallback periodic sync every 20s
+    const pollTimer = setInterval(() => {
+      if (selectedDateIso) {
+        fetchAvailability(selectedDateIso, false);
+      }
+    }, 20000);
+
+    return () => {
+      if (eventSource) eventSource.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      clearInterval(pollTimer);
+    };
+  }, [selectedDateIso, fetchAvailability]);
+
+  // Date change handler
+  const handleDateChange = (dateIso: string) => {
+    setSelectedDateIso(dateIso);
+    const dateObj = dates.find((d) => d.iso === dateIso);
+    if (dateObj) {
+      setSelectedDateFormatted(dateObj.val);
+      setCurrentMonthYear(dateObj.monthYear);
+    }
+    setSelectedTime("");
+    setSelectedSlotId("");
+    setConflictError(null);
+    fetchAvailability(dateIso);
+  };
+
+  const handleNextDateOffset = () => {
+    setDateOffset((prev) => prev + 6);
+  };
+
+  const handlePrevDateOffset = () => {
+    setDateOffset((prev) => Math.max(0, prev - 6));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (showCustomTime) {
+      if (!customDate || !customTime) {
+        setConflictError("Please select both a preferred date and time for your custom request.");
+        return;
+      }
+    } else {
+      if (!selectedTime) {
+        setConflictError("Please select an available time slot.");
+        return;
+      }
+    }
+
     setLoading(true);
+    setConflictError(null);
 
     try {
+      const payload = showCustomTime
+        ? {
+            isCustomRequest: true,
+            name,
+            email,
+            company,
+            date: customDate,
+            timeSlot: `${customTime} (${detectedTzShort})`,
+            workflowType: workflowArea,
+            description: `[Custom Request] ${description}`,
+          }
+        : {
+            name,
+            email,
+            company,
+            date: selectedDateFormatted,
+            timeSlot: selectedTime,
+            workflowType: workflowArea,
+            description: `${description} [UTC Slot ID: ${selectedSlotId}]`,
+          };
+
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          company,
-          date: selectedDate,
-          timeSlot: selectedTime,
-          workflowType: workflowArea,
-          description,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Failed to book session");
+      if (res.status === 409) {
+        const conflictData = await res.json().catch(() => ({}));
+        setConflictError(
+          conflictData.error || "That time was just booked. Please choose another available time."
+        );
+        setSelectedTime("");
+        await fetchAvailability(selectedDateIso);
+        setLoading(false);
+        return;
+      }
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to reserve architecture session");
+      }
+
       const data = await res.json();
 
       setBookingData({
         id: data.id || "AXIOM-ARCH-" + Math.floor(1000 + Math.random() * 9000),
-        date: selectedDate,
-        timeSlot: selectedTime,
+        date: showCustomTime ? customDate : selectedDateFormatted,
+        timeSlot: showCustomTime ? `${customTime} (${detectedTzShort} Requested)` : selectedTime,
         name,
         company,
+        status: data.status || (showCustomTime ? "REQUESTED" : "CONFIRMED"),
       });
       setConfirmed(true);
       window.scrollTo({ top: 120, behavior: "smooth" });
-    } catch {
-      // Graceful fallback for mock demonstration
-      setBookingData({
-        id: "AXIOM-ARCH-" + Math.floor(1000 + Math.random() * 9000),
-        date: selectedDate,
-        timeSlot: selectedTime,
-        name,
-        company,
-      });
-      setConfirmed(true);
-      window.scrollTo({ top: 120, behavior: "smooth" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Error creating booking";
+      setConflictError(msg);
     } finally {
       setLoading(false);
     }
   };
+
+  const todayIso = new Date().toISOString().split("T")[0];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFFFF] text-[#0F172A] selection:bg-blue-600 selection:text-white">
@@ -155,110 +376,74 @@ export default function BookPage() {
         <section className="axiom-container py-8 sm:py-12">
           {!confirmed ? (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
-              
               {/* LEFT COLUMN: 38% - Architecture Specifications & Guarantees */}
               <div className="lg:col-span-5 space-y-6">
-                <AxiomCornerCard
-                  corner="top-left"
-                  color="blue"
-                  className="p-5 sm:p-8 space-y-6 shadow-sm border-slate-200/90"
-                >
-                  <div>
-                    <span className="text-[11px] font-mono text-[#2563EB] font-bold tracking-widest uppercase block mb-1">
+                <div className="p-6 rounded-2xl bg-slate-50/80 border border-slate-200/80 space-y-5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <span className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-semibold">
                       SESSION PROTOCOL
                     </span>
-                    <h3 className="text-[20px] sm:text-[22px] font-bold text-[#0F172A] tracking-tight">
-                      Architecture Review Scope
-                    </h3>
+                    <span className="text-[11px] font-mono text-[#2563EB] font-bold">45 MINUTES</span>
                   </div>
 
-                  <ul className="space-y-6 text-[14.5px] text-slate-600">
-                    <li className="flex items-start gap-4 group">
-                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#2563EB] flex items-center justify-center shrink-0 mt-0.5 border border-blue-200/60 shadow-xs">
-                        <Clock className="w-4 h-4 icon-hover-pulse" />
+                  <div className="space-y-4 text-[14px]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-lg bg-blue-100 text-[#2563EB] flex items-center justify-center shrink-0 mt-0.5">
+                        <GitFork className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <span className="font-mono text-[11px] text-[#2563EB] font-bold tracking-wider block">01 / REVIEW DURATION</span>
-                        <strong className="text-[#0F172A] block font-semibold text-[15px]">
-                          30-Minute Architecture Review
-                        </strong>
-                        <p className="text-slate-500 text-[13.5px] leading-relaxed mt-0.5">
-                          Focused directly on your stack, bottlenecks, volume requirements, and security constraints.
+                        <div className="font-semibold text-[#0F172A]">Workflow Topology Audit</div>
+                        <p className="text-[13px] text-slate-600 mt-0.5 leading-relaxed">
+                          Analyze manual hops, webhook payloads, and retry failure rates across your tech stack.
                         </p>
                       </div>
-                    </li>
-
-                    <li className="flex items-start gap-4 group">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-200/60 shadow-xs">
-                        <UserCheck className="w-4 h-4 icon-hover-pulse" />
-                      </div>
-                      <div>
-                        <span className="font-mono text-[11px] text-emerald-600 font-bold tracking-wider block">02 / DIRECT ACCESS</span>
-                        <strong className="text-[#0F172A] block font-semibold text-[15px]">
-                          No-Pitch Consultation
-                        </strong>
-                        <p className="text-slate-500 text-[13.5px] leading-relaxed mt-0.5">
-                          Speak directly with an automation systems engineer, not a scripted salesperson.
-                        </p>
-                      </div>
-                    </li>
-
-                    <li className="flex items-start gap-4 group">
-                      <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 mt-0.5 border border-purple-200/60 shadow-xs">
-                        <GitFork className="w-4 h-4 icon-hover-pulse" />
-                      </div>
-                      <div>
-                        <span className="font-mono text-[11px] text-purple-600 font-bold tracking-wider block">03 / ARTIFACT DELIVERABLE</span>
-                        <strong className="text-[#0F172A] block font-semibold text-[15px]">
-                          Workflow Topology Map
-                        </strong>
-                        <p className="text-slate-500 text-[13.5px] leading-relaxed mt-0.5">
-                          Receive an initial architecture direction and node topology diagram within 24 hours.
-                        </p>
-                      </div>
-                    </li>
-
-                    <li className="flex items-start gap-4 group">
-                      <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0 mt-0.5 border border-cyan-200/60 shadow-xs">
-                        <ShieldCheck className="w-4 h-4 icon-hover-pulse" />
-                      </div>
-                      <div>
-                        <span className="font-mono text-[11px] text-cyan-600 font-bold tracking-wider block">04 / COMPLIANCE GATING</span>
-                        <strong className="text-[#0F172A] block font-semibold text-[15px]">
-                          Security &amp; Governance Review
-                        </strong>
-                        <p className="text-slate-500 text-[13.5px] leading-relaxed mt-0.5">
-                          Review data isolation, human-in-the-loop triggers, and KMS token encryption parameters.
-                        </p>
-                      </div>
-                    </li>
-                  </ul>
-                </AxiomCornerCard>
-
-                {/* Dark Navy Mutual Confidentiality Panel */}
-                <div className="relative overflow-hidden rounded-2xl bg-[#0F172A] text-white border border-slate-800 p-5 sm:p-7 shadow-xl">
-                  {/* Subtle corner emerald glow accent */}
-                  <div className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full bg-emerald-500/15 border border-emerald-500/30 pointer-events-none" />
-                  
-                  <div className="relative z-10 space-y-3">
-                    <div className="flex items-center gap-2 text-emerald-400 font-mono text-[11px] font-semibold uppercase tracking-wider">
-                      <Lock className="w-4 h-4" />
-                      <span>MUTUAL CONFIDENTIALITY &amp; NDA</span>
                     </div>
-                    <p className="text-slate-300 text-[13.5px] leading-relaxed">
-                      Customer architecture discussions are handled confidentially under mutual enterprise nondisclosure terms.
-                    </p>
-                    <div className="flex flex-wrap gap-2 pt-2">
-                      <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-emerald-400">
-                        SOC-2 TYPE II
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-slate-300">
-                        AUDIT READY
-                      </span>
-                      <span className="px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-blue-400">
-                        SECURE DISCUSSION
-                      </span>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-[#0F172A]">HITL Security Boundaries</div>
+                        <p className="text-[13px] text-slate-600 mt-0.5 leading-relaxed">
+                          Define strict human-in-the-loop escalation thresholds for financial and database mutations.
+                        </p>
+                      </div>
                     </div>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <Layers className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-[#0F172A]">Deterministic Architecture Blueprint</div>
+                        <p className="text-[13px] text-slate-600 mt-0.5 leading-relaxed">
+                          Walk away with a concrete architectural blueprint for n8n or custom pipeline deployment.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Verification Notice */}
+                <div className="p-5 rounded-2xl bg-slate-900 text-white space-y-3 shadow-lg">
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
+                    <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>ZERO-COMPROMISE SECURITY POLICY</span>
+                  </div>
+                  <p className="text-[13px] text-slate-300 leading-relaxed font-normal">
+                    All technical discussions are safeguarded under mutual non-disclosure. No production credentials or live access are ever requested during review sessions.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <span className="px-2.5 py-1 rounded-md bg-slate-800 text-[10px] font-mono text-emerald-400">
+                      SOC-2 TYPE II
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-slate-800 text-[10px] font-mono text-slate-300">
+                      AUDIT READY
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-slate-800 text-[10px] font-mono text-blue-400">
+                      SECURE DISCUSSION
+                    </span>
                   </div>
                 </div>
               </div>
@@ -279,12 +464,24 @@ export default function BookPage() {
                         <h3 className="text-[19px] font-bold text-[#0F172A] tracking-tight">
                           Select Date &amp; Reserve Slot
                         </h3>
-                        <span className="text-[11px] font-mono text-slate-400">TIME ZONE: EASTERN STANDARD (EST)</span>
+                        <span className="text-[11px] font-mono text-slate-400 uppercase">
+                          TIME ZONE: {timezone.toUpperCase()} ({detectedTzShort})
+                        </span>
                       </div>
                     </div>
-                    <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200/80 font-semibold flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      SLOTS OPEN
+                    <span
+                      className={`text-[11px] font-mono px-3 py-1 rounded-full border font-semibold flex items-center gap-1.5 ${
+                        isFullyBooked
+                          ? "text-amber-700 bg-amber-50 border-amber-200/80"
+                          : "text-emerald-700 bg-emerald-50 border-emerald-200/80"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          isFullyBooked ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+                        }`}
+                      />
+                      {isFullyBooked ? "DAY FULL" : "SLOTS OPEN"}
                     </span>
                   </div>
 
@@ -292,28 +489,57 @@ export default function BookPage() {
                     {/* Date Selector Cards */}
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <label className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-bold">
-                          1. SELECT DATE (APRIL 2025)
-                        </label>
-                        <span className="text-[12px] font-mono text-[#2563EB] font-semibold">{selectedDate}</span>
+                        <div className="flex items-center gap-2">
+                          <label className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-bold">
+                            1. SELECT DATE ({currentMonthYear ? currentMonthYear.toUpperCase() : "AVAILABLE DATES"})
+                          </label>
+                          {/* Date Navigation Controls */}
+                          <div className="flex items-center gap-1 ml-1.5">
+                            <button
+                              type="button"
+                              onClick={handlePrevDateOffset}
+                              disabled={dateOffset === 0}
+                              aria-label="Previous dates"
+                              className="p-1 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleNextDateOffset}
+                              aria-label="Next dates"
+                              className="p-1 rounded-md border border-slate-200 text-slate-500 hover:bg-slate-100 transition"
+                            >
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <span className="text-[12px] font-mono text-[#2563EB] font-semibold">
+                          {selectedDateFormatted}
+                        </span>
                       </div>
-                      
+
                       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
                         {dates.map((d) => {
-                          const isSelected = selectedDate === d.val;
+                          const isSelected = selectedDateIso === d.iso;
                           return (
                             <button
-                              key={d.val}
+                              key={d.iso}
                               type="button"
-                              onClick={() => setSelectedDate(d.val)}
+                              onClick={() => handleDateChange(d.iso)}
                               className={`py-3.5 px-2 rounded-xl text-center transition-all duration-200 border relative overflow-hidden group ${
                                 isSelected
                                   ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md -translate-y-0.5 ring-2 ring-blue-500/40"
                                   : "bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-slate-50"
                               }`}
                             >
-                              <div className={`text-[10px] font-mono uppercase tracking-wider ${isSelected ? "text-blue-300" : "text-slate-400"}`}>
+                              <div
+                                className={`text-[10px] font-mono uppercase tracking-wider ${
+                                  isSelected ? "text-blue-300" : "text-slate-400"
+                                }`}
+                              >
                                 {d.label}
+                                {d.isToday ? " •" : ""}
                               </div>
                               <div className="text-[20px] font-bold tracking-tight mt-0.5">
                                 {d.day}
@@ -331,31 +557,135 @@ export default function BookPage() {
                     <div>
                       <div className="flex items-center justify-between mb-3">
                         <label className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-bold">
-                          2. AVAILABLE TIME
+                          2. AVAILABLE TIME ({detectedTzShort})
                         </label>
-                        <span className="text-[12px] font-mono text-[#2563EB] font-semibold">{selectedTime}</span>
+                        <span className="text-[12px] font-mono text-[#2563EB] font-semibold">
+                          {showCustomTime
+                            ? customTime
+                              ? `${customTime} (${detectedTzShort} Requested)`
+                              : "Custom Time Selected"
+                            : selectedTime || "Select a slot"}
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                        {times.map((t) => {
-                          const isSelected = selectedTime === t;
-                          return (
+                      {conflictError && (
+                        <div className="mb-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] flex items-center gap-2.5 animate-in fade-in duration-200">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>{conflictError}</span>
+                        </div>
+                      )}
+
+                      {!showCustomTime && isFullyBooked ? (
+                        <div className="py-6 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
+                          <p className="text-[13px] text-slate-600 font-medium">
+                            All standard consultation slots for this date are fully reserved.
+                          </p>
+                          {nextAvailableDateOption && (
                             <button
-                              key={t}
                               type="button"
-                              onClick={() => setSelectedTime(t)}
-                              className={`py-3 px-3.5 rounded-xl text-[13px] font-mono font-medium transition-all duration-200 border flex items-center justify-between group ${
-                                isSelected
-                                  ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm shadow-blue-500/30"
-                                  : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50/50"
-                              }`}
+                              onClick={() => handleDateChange(nextAvailableDateOption.iso)}
+                              className="text-[12px] font-mono text-[#2563EB] hover:underline font-semibold"
                             >
-                              <span>{t}</span>
-                              <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? "bg-white" : "bg-slate-300 group-hover:bg-blue-400"}`} />
+                              Jump to next available date ({nextAvailableDateOption.val}) →
                             </button>
-                          );
-                        })}
+                          )}
+                        </div>
+                      ) : !showCustomTime ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          {slotsLoading && slots.length === 0 ? (
+                            <div className="col-span-full py-6 text-center text-[12px] font-mono text-slate-400">
+                              Loading live availability...
+                            </div>
+                          ) : (
+                            slots.map((s) => {
+                              const isSelected = selectedTime === s.fullDisplay;
+                              const isAvailable = s.available;
+                              return (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  disabled={!isAvailable}
+                                  onClick={() => {
+                                    setSelectedTime(s.fullDisplay);
+                                    setSelectedSlotId(s.id);
+                                    setConflictError(null);
+                                  }}
+                                  className={`py-3 px-3.5 rounded-xl text-[13px] font-mono font-medium transition-all duration-200 border flex items-center justify-between group ${
+                                    isSelected
+                                      ? "bg-[#2563EB] text-white border-[#2563EB] shadow-sm shadow-blue-500/30"
+                                      : !isAvailable
+                                      ? "bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed line-through"
+                                      : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50/50"
+                                  }`}
+                                >
+                                  <span>{s.time}</span>
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      isSelected
+                                        ? "bg-white"
+                                        : !isAvailable
+                                        ? "bg-slate-300"
+                                        : "bg-emerald-400 group-hover:bg-blue-400"
+                                    }`}
+                                  />
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      ) : null}
+
+                      {/* Custom Time Option Toggle */}
+                      <div className="mt-3 flex items-center justify-between pt-1">
+                        <span className="text-[12px] text-slate-500">Need another time?</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowCustomTime(!showCustomTime);
+                            setConflictError(null);
+                          }}
+                          className="text-[12px] font-mono text-[#2563EB] hover:underline font-semibold"
+                        >
+                          {showCustomTime ? "[ Use standard slots ]" : "[ Choose a custom time ]"}
+                        </button>
                       </div>
+
+                      {/* Custom Time Selection Form */}
+                      {showCustomTime && (
+                        <div className="mt-3 p-4 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3 animate-in fade-in duration-200">
+                          <div className="text-[12px] font-medium text-slate-700">
+                            Specify your preferred date and time for an architect consultation:
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] font-mono text-slate-500 uppercase mb-1">
+                                Preferred Date
+                              </label>
+                              <input
+                                type="date"
+                                min={todayIso}
+                                value={customDate}
+                                onChange={(e) => setCustomDate(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-900 outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-mono text-slate-500 uppercase mb-1">
+                                Preferred Time Window ({detectedTzShort})
+                              </label>
+                              <input
+                                type="time"
+                                value={customTime}
+                                onChange={(e) => setCustomTime(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-[13px] text-slate-900 outline-none focus:border-blue-500"
+                              />
+                            </div>
+                          </div>
+                          <div className="text-[11px] font-mono text-slate-500">
+                            Note: Custom time requests are dispatched to an engineering lead for direct confirmation.
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Customer Information (2-Column Grid) */}
@@ -445,7 +775,13 @@ export default function BookPage() {
                       disabled={loading}
                       className="btn-arrow-slide btn-axiom-primary w-full py-4 text-[16px] gap-2.5 font-semibold disabled:opacity-50"
                     >
-                      <span>{loading ? "Allocating Systems Engineer..." : "Confirm Architecture Session"}</span>
+                      <span>
+                        {loading
+                          ? "Allocating Systems Engineer..."
+                          : showCustomTime
+                          ? "Submit Custom Time Request"
+                          : "Confirm Architecture Session"}
+                      </span>
                       <ArrowRight className="w-5 h-5 arrow-icon text-blue-200" />
                     </button>
 
@@ -462,7 +798,6 @@ export default function BookPage() {
                   </form>
                 </AxiomCornerCard>
               </div>
-
             </div>
           ) : (
             /* ================= CONFIRMATION RECEIPT PANEL ================= */
@@ -481,17 +816,33 @@ export default function BookPage() {
                 </div>
 
                 <h2 className="text-[32px] sm:text-[38px] font-bold text-[#0F172A] tracking-tight mb-3">
-                  Architecture Session Reserved
+                  {bookingData?.status === "REQUESTED"
+                    ? "Custom Time Request Received"
+                    : "Architecture Session Reserved"}
                 </h2>
 
                 <p className="text-[16px] text-slate-600 max-w-md mx-auto mb-8 leading-relaxed">
-                  We have reserved your slot with an AXIOM systems specialist. A confirmation and calendar invite have been sent to{" "}
-                  <strong className="text-[#0F172A] font-semibold">{email}</strong>.
+                  {bookingData?.status === "REQUESTED" ? (
+                    <>
+                      We have received your custom consultation request for{" "}
+                      <strong className="text-[#0F172A] font-semibold">{bookingData?.date}</strong>. An AXIOM
+                      systems specialist will review availability and confirm your calendar invite at{" "}
+                      <strong className="text-[#0F172A] font-semibold">{email}</strong> within 2 hours.
+                    </>
+                  ) : (
+                    <>
+                      We have reserved your slot with an AXIOM systems specialist. A confirmation and calendar invite
+                      have been sent to{" "}
+                      <strong className="text-[#0F172A] font-semibold">{email}</strong>.
+                    </>
+                  )}
                 </p>
 
                 <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-left max-w-md mx-auto mb-8 space-y-3 font-mono text-[13px]">
                   <div className="flex justify-between pb-2 border-b border-slate-200">
-                    <span className="text-slate-500">RESERVED DATE:</span>
+                    <span className="text-slate-500">
+                      {bookingData?.status === "REQUESTED" ? "REQUESTED DATE:" : "RESERVED DATE:"}
+                    </span>
                     <span className="font-bold text-[#0F172A]">{bookingData?.date}</span>
                   </div>
                   <div className="flex justify-between pb-2 border-b border-slate-200">
@@ -503,21 +854,27 @@ export default function BookPage() {
                     <span className="font-bold text-[#0F172A]">{bookingData?.company}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">CONFERENCE NODE:</span>
-                    <span className="font-bold text-emerald-600">Google Meet / HD</span>
+                    <span className="text-slate-500">STATUS:</span>
+                    <span
+                      className={`font-bold ${
+                        bookingData?.status === "REQUESTED" ? "text-amber-600" : "text-emerald-600"
+                      }`}
+                    >
+                      {bookingData?.status === "REQUESTED" ? "PENDING REVIEW" : "CONFIRMED"}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-4">
-                  <Link
-                    href="/live-demo"
-                    className="btn-axiom-primary px-6 py-3 text-[14px] gap-2"
-                  >
+                  <Link href="/live-demo" className="btn-axiom-primary px-6 py-3 text-[14px] gap-2">
                     <span>Explore Live Simulator While You Wait</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <button
-                    onClick={() => setConfirmed(false)}
+                    onClick={() => {
+                      setConfirmed(false);
+                      fetchAvailability(selectedDateIso);
+                    }}
                     className="btn-axiom-secondary px-5 py-3 text-[14px]"
                   >
                     Book Another Session
