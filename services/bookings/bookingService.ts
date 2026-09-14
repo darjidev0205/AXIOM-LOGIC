@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { sendBookingConfirmationToN8N } from "@/lib/n8n";
+import { sendBookingConfirmationToN8N, N8nWebhookResponse } from "@/lib/n8n";
 import { broadcastBookingEvent } from "@/lib/bookingEvents";
 
 export interface CreateBookingInput {
@@ -10,6 +10,7 @@ export interface CreateBookingInput {
   timeSlot: string;
   workflowType: string;
   description: string;
+  timeZone?: string;
 }
 
 export interface CreateCustomRequestInput {
@@ -20,10 +21,11 @@ export interface CreateCustomRequestInput {
   preferredTime: string;
   workflowType?: string;
   notes?: string;
+  timeZone?: string;
 }
 
 export class BookingService {
-  async createBooking(data: CreateBookingInput) {
+  async createBooking(data: CreateBookingInput): Promise<{ booking: any; n8nResult: N8nWebhookResponse }> {
     if (!data.name || !data.email || !data.company) {
       throw new Error("Name, email, and company are required");
     }
@@ -70,13 +72,16 @@ export class BookingService {
     });
 
     // Notify n8n webhook after database record is successfully created.
-    // Any n8n delivery error is handled gracefully inside the helper so the booking remains confirmed.
-    await sendBookingConfirmationToN8N(booking);
+    // Errors are captured safely inside sendBookingConfirmationToN8N so the booking remains confirmed.
+    const n8nResult = await sendBookingConfirmationToN8N({
+      ...booking,
+      timeZone: data.timeZone,
+    });
 
-    return booking;
+    return { booking, n8nResult };
   }
 
-  async createCustomRequest(data: CreateCustomRequestInput) {
+  async createCustomRequest(data: CreateCustomRequestInput): Promise<{ booking: any; n8nResult: N8nWebhookResponse }> {
     if (!data.name || !data.email || !data.preferredDate || !data.preferredTime) {
       throw new Error("Name, email, preferred date, and preferred time are required");
     }
@@ -95,9 +100,13 @@ export class BookingService {
     });
 
     // Notify n8n for custom request handling
-    await sendBookingConfirmationToN8N(booking);
+    const n8nResult = await sendBookingConfirmationToN8N({
+      ...booking,
+      timeZone: data.timeZone,
+      isCustomRequest: true,
+    });
 
-    return booking;
+    return { booking, n8nResult };
   }
 
   async listBookings() {

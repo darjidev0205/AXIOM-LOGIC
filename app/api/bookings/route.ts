@@ -9,7 +9,7 @@ export async function POST(request: Request) {
 
     // Check if this is a custom time request
     if (body.isCustomRequest || body.action === "request_time") {
-      const customBooking = await bookingService.createCustomRequest({
+      const { booking, n8nResult } = await bookingService.createCustomRequest({
         name: body.name,
         email: body.email,
         company: body.company,
@@ -17,13 +17,23 @@ export async function POST(request: Request) {
         preferredTime: body.timeSlot || body.preferredTime,
         workflowType: body.workflowType,
         notes: body.description || body.notes,
+        timeZone: body.timeZone || body.timezone,
       });
 
-      return NextResponse.json(customBooking, { status: 201 });
+      return NextResponse.json(
+        {
+          ...booking,
+          n8nSuccess: n8nResult.success,
+          n8nStatus: n8nResult.status,
+          emailMessage: n8nResult.message,
+          emailError: n8nResult.error,
+        },
+        { status: 201 }
+      );
     }
 
     // Standard atomic booking creation with concurrency check
-    const booking = await bookingService.createBooking({
+    const { booking, n8nResult } = await bookingService.createBooking({
       name: body.name,
       email: body.email,
       company: body.company,
@@ -31,9 +41,19 @@ export async function POST(request: Request) {
       timeSlot: body.timeSlot,
       workflowType: body.workflowType,
       description: body.description,
+      timeZone: body.timeZone || body.timezone,
     });
 
-    return NextResponse.json(booking, { status: 201 });
+    return NextResponse.json(
+      {
+        ...booking,
+        n8nSuccess: n8nResult.success,
+        n8nStatus: n8nResult.status,
+        emailMessage: n8nResult.message,
+        emailError: n8nResult.error,
+      },
+      { status: 201 }
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Error creating booking";
     const isConflict = message.includes("That time was just booked") || message.includes("already booked");

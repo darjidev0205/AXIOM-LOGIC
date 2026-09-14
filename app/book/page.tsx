@@ -46,10 +46,10 @@ export default function BookPage() {
   const [customDate, setCustomDate] = useState<string>("");
   const [customTime, setCustomTime] = useState<string>("");
 
-  // Form Inputs
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [company, setCompany] = useState("");
+  // Form Inputs (Pre-filled with friendly enterprise defaults, editable)
+  const [name, setName] = useState("Marcus Vance");
+  const [email, setEmail] = useState("marcus@hypergrowth.io");
+  const [company, setCompany] = useState("Hypergrowth Inc");
   const [workflowArea, setWorkflowArea] = useState("Customer Operations");
   const [description, setDescription] = useState(
     "We handle ~800 order change requests per week manually in Zendesk and Postgres. Looking to automate safe changes without customer churn."
@@ -58,6 +58,7 @@ export default function BookPage() {
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [conflictError, setConflictError] = useState<string | null>(null);
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
   const [bookingData, setBookingData] = useState<{
     id: string;
     date: string;
@@ -246,6 +247,18 @@ export default function BookPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const trimmedEmail = (email || "").trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setConflictError("Please enter a valid work email address (e.g. name@company.com).");
+      return;
+    }
+
+    if (!name.trim()) {
+      setConflictError("Please enter your full name.");
+      return;
+    }
+
     if (showCustomTime) {
       if (!customDate || !customTime) {
         setConflictError("Please select both a preferred date and time for your custom request.");
@@ -253,41 +266,52 @@ export default function BookPage() {
       }
     } else {
       if (!selectedTime) {
-        setConflictError("Please select an available time slot.");
+        setConflictError("Please select an available time slot before confirming.");
+        return;
+      }
+      if (!selectedDateFormatted) {
+        setConflictError("Please select a consultation date.");
         return;
       }
     }
 
     setLoading(true);
     setConflictError(null);
+    setEmailWarning(null);
+
+    const payload = showCustomTime
+      ? {
+          isCustomRequest: true,
+          name: name.trim(),
+          email: trimmedEmail,
+          company: company.trim() || "Enterprise Operations",
+          date: customDate,
+          timeSlot: `${customTime} (${detectedTzShort})`,
+          workflowType: workflowArea,
+          description: `[Custom Request Window] ${description.trim()}`,
+          timeZone: timezone,
+        }
+      : {
+          name: name.trim(),
+          email: trimmedEmail,
+          company: company.trim() || "Enterprise Operations",
+          date: selectedDateFormatted,
+          timeSlot: selectedTime,
+          workflowType: workflowArea,
+          description: description.trim(),
+          timeZone: timezone,
+        };
+
+    console.log("[Axiom Booking] Submitting booking request:", payload);
 
     try {
-      const payload = showCustomTime
-        ? {
-            isCustomRequest: true,
-            name,
-            email,
-            company,
-            date: customDate,
-            timeSlot: `${customTime} (${detectedTzShort})`,
-            workflowType: workflowArea,
-            description: `[Custom Request] ${description}`,
-          }
-        : {
-            name,
-            email,
-            company,
-            date: selectedDateFormatted,
-            timeSlot: selectedTime,
-            workflowType: workflowArea,
-            description: `${description} [UTC Slot ID: ${selectedSlotId}]`,
-          };
-
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
+      console.log(`[Axiom Booking] Response HTTP status: ${res.status}`);
 
       if (res.status === 409) {
         const conflictData = await res.json().catch(() => ({}));
@@ -306,13 +330,24 @@ export default function BookPage() {
       }
 
       const data = await res.json();
+      console.log("[Axiom Booking] Booking response received:", data);
+
+      if (data.n8nSuccess === false) {
+        console.warn("[Axiom Booking] n8n confirmation delivery notice:", data.emailError);
+        setEmailWarning(
+          "Your architecture review is confirmed. We’re having trouble sending the confirmation email right now, but your booking is saved."
+        );
+      } else {
+        console.log("[Axiom Booking] n8n confirmation email dispatched successfully.");
+        setEmailWarning(null);
+      }
 
       setBookingData({
         id: data.id || "AXIOM-ARCH-" + Math.floor(1000 + Math.random() * 9000),
         date: showCustomTime ? customDate : selectedDateFormatted,
         timeSlot: showCustomTime ? `${customTime} (${detectedTzShort} Requested)` : selectedTime,
-        name,
-        company,
+        name: name.trim(),
+        company: company.trim() || "Enterprise Operations",
         status: data.status || (showCustomTime ? "REQUESTED" : "CONFIRMED"),
       });
       setConfirmed(true);
@@ -837,6 +872,13 @@ export default function BookPage() {
                     </>
                   )}
                 </p>
+
+                {emailWarning && (
+                  <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] flex items-center gap-3 text-left max-w-md mx-auto animate-in fade-in">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>{emailWarning}</span>
+                  </div>
+                )}
 
                 <div className="p-6 rounded-2xl bg-slate-50 border border-slate-200/80 text-left max-w-md mx-auto mb-8 space-y-3 font-mono text-[13px]">
                   <div className="flex justify-between pb-2 border-b border-slate-200">

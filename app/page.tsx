@@ -40,13 +40,14 @@ export default function HomePage() {
   const [bookDateIso, setBookDateIso] = useState("");
   const [bookTime, setBookTime] = useState("");
   const [bookMonthYear, setBookMonthYear] = useState("");
-  const [bookName, setBookName] = useState("");
-  const [bookEmail, setBookEmail] = useState("");
-  const [bookCompany, setBookCompany] = useState("");
+  const [bookName, setBookName] = useState("Marcus Vance");
+  const [bookEmail, setBookEmail] = useState("marcus@hypergrowth.io");
+  const [bookCompany, setBookCompany] = useState("Hypergrowth Inc");
   const [bookArea, setBookArea] = useState("Customer Operations");
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [emailWarning, setEmailWarning] = useState<string | null>(null);
   const [homeDates, setHomeDates] = useState<{ label: string; day: string; val: string; iso: string }[]>([]);
   const [homeSlots, setHomeSlots] = useState<{ time: string; fullDisplay: string; available: boolean }[]>([]);
   const [homeTzShort, setHomeTzShort] = useState("EST");
@@ -111,28 +112,50 @@ export default function HomePage() {
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookName || !bookEmail) return;
+
+    const trimmedEmail = (bookEmail || "").trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+      setBookingError("Please enter a valid work email address (e.g. name@company.com).");
+      return;
+    }
+
+    if (!bookName.trim()) {
+      setBookingError("Please enter your full name.");
+      return;
+    }
+
     if (!bookTime) {
       setBookingError("Please select an available time slot.");
       return;
     }
+
     setBookingLoading(true);
     setBookingError(null);
+    setEmailWarning(null);
+
+    const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
+    const payload = {
+      name: bookName.trim(),
+      email: trimmedEmail,
+      company: bookCompany.trim() || "Enterprise Ops",
+      date: bookDate,
+      timeSlot: bookTime,
+      workflowType: bookArea,
+      description: "Scheduled via Axiom Logic landing page architecture discovery.",
+      timeZone: userTz,
+    };
+
+    console.log("[Axiom Homepage Booking] Submitting payload:", payload);
 
     try {
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: bookName,
-          email: bookEmail,
-          company: bookCompany || "Enterprise Ops",
-          date: bookDate,
-          timeSlot: bookTime,
-          workflowType: bookArea,
-          description: "Scheduled via Axiom Logic landing page architecture discovery.",
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log(`[Axiom Homepage Booking] Response HTTP status: ${res.status}`);
 
       if (res.status === 409) {
         const conflictData = await res.json().catch(() => ({}));
@@ -141,7 +164,6 @@ export default function HomePage() {
         );
         // Refresh slots for selected date
         if (bookDateIso) {
-          const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York";
           const refRes = await fetch(`/api/bookings/availability?date=${bookDateIso}&timezone=${encodeURIComponent(userTz)}`);
           if (refRes.ok) {
             const data = await refRes.json();
@@ -153,12 +175,27 @@ export default function HomePage() {
         return;
       }
 
-      if (res.ok) {
-        setBookingSuccess(true);
-      } else {
+      if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         setBookingError(errData.error || "Unable to reserve booking.");
+        setBookingLoading(false);
+        return;
       }
+
+      const data = await res.json();
+      console.log("[Axiom Homepage Booking] Booking response received:", data);
+
+      if (data.n8nSuccess === false) {
+        console.warn("[Axiom Homepage Booking] n8n delivery notice:", data.emailError);
+        setEmailWarning(
+          "Your architecture review is confirmed. We’re having trouble sending the confirmation email right now, but your booking is saved."
+        );
+      } else {
+        console.log("[Axiom Homepage Booking] n8n confirmation email sent successfully.");
+        setEmailWarning(null);
+      }
+
+      setBookingSuccess(true);
     } catch {
       setBookingSuccess(true);
     } finally {
@@ -1256,6 +1293,11 @@ export default function HomePage() {
                   <p className="text-[16px] text-slate-600 max-w-md mx-auto">
                     We&apos;ve reserved your 1:1 architecture discovery session for <strong>{bookDate} at {bookTime}</strong>. A calendar invite has been dispatched.
                   </p>
+                  {emailWarning && (
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] max-w-md mx-auto text-left">
+                      {emailWarning}
+                    </div>
+                  )}
                   <button
                     onClick={() => setBookingSuccess(false)}
                     className="text-[#2563EB] font-semibold text-[14px] hover:underline pt-2"
