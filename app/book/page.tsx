@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { DateOption, SlotOption } from "@/services/bookings/availabilityService";
+import { buildAxiomPostBookingPayload, postBookingToAxiom } from "@/services/axiomPhase2";
 
 export default function BookPage() {
   const [timezone, setTimezone] = useState<string>("America/New_York");
@@ -147,8 +148,8 @@ export default function BookPage() {
 
   // Load availability whenever timezone or dateOffset changes
   useEffect(() => {
-    fetchAvailability(selectedDateIso || undefined);
-  }, [fetchAvailability, selectedDateIso]);
+    fetchAvailability();
+  }, [fetchAvailability]);
 
   // Real-time synchronization via SSE & fallback polling
   useEffect(() => {
@@ -352,6 +353,26 @@ export default function BookPage() {
       });
       setConfirmed(true);
       window.scrollTo({ top: 120, behavior: "smooth" });
+
+      // Phase 2: Dispatch post-booking notification to n8n Pre-Meeting Intelligence workflow
+      try {
+        const p2Payload = buildAxiomPostBookingPayload({
+          id: data.id || "AXIOM-ARCH-" + Date.now(),
+          name: name.trim(),
+          email: trimmedEmail,
+          company: company.trim() || "Enterprise Operations",
+          date: showCustomTime ? customDate : selectedDateFormatted,
+          timeSlot: showCustomTime ? `${customTime} (${detectedTzShort} Requested)` : selectedTime,
+          timeZone: timezone,
+          workflowType: workflowArea,
+          description: description.trim(),
+        });
+        postBookingToAxiom(p2Payload).catch((p2Err) => {
+          console.warn("[Axiom Booking] Phase 2 post-booking background notice:", p2Err);
+        });
+      } catch (p2Err) {
+        console.warn("[Axiom Booking] Phase 2 post-booking dispatch notice:", p2Err);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error creating booking";
       setConflictError(msg);
@@ -562,9 +583,9 @@ export default function BookPage() {
                               key={d.iso}
                               type="button"
                               onClick={() => handleDateChange(d.iso)}
-                              className={`py-3.5 px-2 rounded-xl text-center transition-all duration-200 border relative overflow-hidden group ${
+                              className={`py-3.5 px-2 rounded-xl text-center transition-colors duration-150 border relative overflow-hidden group ${
                                 isSelected
-                                  ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md -translate-y-0.5 ring-2 ring-blue-500/40"
+                                  ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md ring-2 ring-blue-500/40"
                                   : "bg-white text-slate-700 border-slate-200 hover:border-blue-400 hover:bg-slate-50"
                               }`}
                             >
@@ -580,7 +601,9 @@ export default function BookPage() {
                                 {d.day}
                               </div>
                               {isSelected && (
-                                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                <div className="absolute bottom-1.5 left-0 right-0 flex justify-center pointer-events-none">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                </div>
                               )}
                             </button>
                           );
@@ -872,6 +895,16 @@ export default function BookPage() {
                     </>
                   )}
                 </p>
+
+                <div className="mb-6 p-4 rounded-xl bg-blue-50/70 border border-blue-200/70 text-[#1E293B] text-[13px] text-left max-w-md mx-auto flex items-start gap-3">
+                  <Sparkles className="w-4 h-4 text-[#2563EB] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-[#0F172A]">Pre-Meeting Architecture Intake: </span>
+                    <span>
+                      We&apos;ve also dispatched your preparation link to <strong className="font-semibold text-[#0F172A]">{email}</strong> so you can share your workflow context in 2–3 minutes before the session.
+                    </span>
+                  </div>
+                </div>
 
                 {emailWarning && (
                   <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[13px] flex items-center gap-3 text-left max-w-md mx-auto animate-in fade-in">

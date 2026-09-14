@@ -30,6 +30,7 @@ import {
   BookOpen,
   CheckCircle2,
 } from "lucide-react";
+import { buildAxiomPostBookingPayload, postBookingToAxiom } from "@/services/axiomPhase2";
 
 export default function HomePage() {
   // Live Demo Section Interactive State
@@ -196,6 +197,26 @@ export default function HomePage() {
       }
 
       setBookingSuccess(true);
+
+      // Phase 2: Dispatch post-booking notification to n8n Pre-Meeting Intelligence workflow
+      try {
+        const p2Payload = buildAxiomPostBookingPayload({
+          id: data.id || "AXIOM-HOME-" + Date.now(),
+          name: bookName.trim(),
+          email: trimmedEmail,
+          company: bookCompany.trim() || "Enterprise Ops",
+          date: bookDate,
+          timeSlot: bookTime,
+          timeZone: userTz,
+          workflowType: bookArea,
+          description: "Scheduled via Axiom Logic landing page architecture discovery.",
+        });
+        postBookingToAxiom(p2Payload).catch((p2Err) => {
+          console.warn("[Axiom Homepage Booking] Phase 2 background notice:", p2Err);
+        });
+      } catch (p2Err) {
+        console.warn("[Axiom Homepage Booking] Phase 2 dispatch notice:", p2Err);
+      }
     } catch {
       setBookingSuccess(true);
     } finally {
@@ -1298,6 +1319,15 @@ export default function HomePage() {
                       {emailWarning}
                     </div>
                   )}
+                  <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200/70 text-[#1E293B] text-[13px] max-w-md mx-auto text-left flex items-start gap-3">
+                    <Sparkles className="w-4 h-4 text-[#2563EB] shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-[#0F172A]">Pre-Meeting Architecture Intake: </span>
+                      <span>
+                        We&apos;ve also sent a preparation link to your email so you can share your workflow requirements in 2–3 minutes before the session.
+                      </span>
+                    </div>
+                  </div>
                   <button
                     onClick={() => setBookingSuccess(false)}
                     className="text-[#2563EB] font-semibold text-[14px] hover:underline pt-2"
@@ -1328,7 +1358,7 @@ export default function HomePage() {
                           key={d.iso}
                           type="button"
                           onClick={() => handleDateSelect(d)}
-                          className={`p-3 rounded-xl border text-center transition-all ${
+                          className={`p-3 rounded-xl border text-center transition-colors duration-150 ${
                             bookDate === d.val
                               ? "bg-[#0F172A] text-white border-[#0F172A] shadow-md"
                               : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
